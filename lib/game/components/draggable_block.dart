@@ -1,5 +1,5 @@
 import 'dart:ui';
-import 'package:blickgame/game/logic/block_model.dart';
+import 'package:blickgame/game/logic/block_model.dart' hide Vector2;
 import 'package:flame/components.dart';
 import 'package:flame/events.dart';
 import 'package:flame/effects.dart';
@@ -47,40 +47,88 @@ class DraggableBlock extends PositionComponent with DragCallbacks {
   }
 
   @override
-  void render(Canvas canvas) {
-    canvas.save();
-    canvas.translate(size.x / 2, size.y / 2);
-    canvas.scale(_scale);
-    canvas.translate(-size.x / 2, -size.y / 2);
+// components/draggable_block.dart (مختصر)
+@override
+void render(Canvas canvas) {
+  if (!isUsed) {
+    _render3DBlock(canvas);
+  }
+}
 
-    final cellW = size.x / block.width;
-    final cellH = size.y / block.height;
-
-    for (final cell in block.occupiedCells) {
-      final rect = Rect.fromLTWH(
-        cell.x * cellW,
-        cell.y * cellH,
-        cellW - 2,
-        cellH - 2,
+void _render3DBlock(Canvas canvas) {
+  final cellW = size.x / block.width;
+  final cellH = size.y / block.height;
+  
+  for (final cell in block.occupiedCells) {
+    final rect = Rect.fromLTWH(
+      cell.x * cellW,
+      cell.y * cellH,
+      cellW - 2,
+      cellH - 2,
+    );
+    
+    // 🔥 تأثير 3D
+    if (block.is3D) {
+      // الجوانب
+      final sidePaint = Paint()..color = block.sideColor;
+      final bottomPaint = Paint()..color = block.sideColor.withOpacity(0.7);
+      
+      // الجانب الأيمن
+      canvas.drawRect(
+        Rect.fromLTWH(
+          rect.right - block.elevation,
+          rect.top + block.elevation,
+          block.elevation,
+          rect.height - block.elevation,
+        ),
+        sidePaint,
       );
-
-      if (_glow > 0) {
-        final glowPaint = Paint()
-          ..color = block.color.withOpacity(0.4 * _glow)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.outer, 8);
-
-        canvas.drawRRect(
-          RRect.fromRectAndRadius(rect, const Radius.circular(6)),
-          glowPaint,
-        );
-      }
-
+      
+      // الجانب السفلي
+      canvas.drawRect(
+        Rect.fromLTWH(
+          rect.left + block.elevation,
+          rect.bottom - block.elevation,
+          rect.width - block.elevation,
+          block.elevation,
+        ),
+        bottomPaint,
+      );
+      
+      // القمة
+      final topRect = Rect.fromLTWH(
+        rect.left,
+        rect.top,
+        rect.width - block.elevation,
+        rect.height - block.elevation,
+      );
+      
+      final topPaint = Paint()
+        ..color = block.topColor
+        ..style = PaintingStyle.fill;
+      
+      final borderPaint = Paint()
+        ..color = Colors.white.withOpacity(0.3)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2;
+      
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(topRect, const Radius.circular(6)),
+        topPaint,
+      );
+      
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(topRect, const Radius.circular(6)),
+        borderPaint,
+      );
+    } else {
+      // نسخة مسطحة (في الجريد)
       final fill = Paint()..color = block.color;
       final border = Paint()
         ..color = Colors.white.withOpacity(0.3)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2;
-
+      
       canvas.drawRRect(
         RRect.fromRectAndRadius(rect, const Radius.circular(6)),
         fill,
@@ -90,11 +138,8 @@ class DraggableBlock extends PositionComponent with DragCallbacks {
         border,
       );
     }
-
-    canvas.restore();
   }
-
-  @override
+}
 @override
 void onDragStart(DragStartEvent event) {
   if (isUsed) return;

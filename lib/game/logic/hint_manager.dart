@@ -1,5 +1,7 @@
+// game/logic/hint_manager.dart
 import 'dart:math';
-import 'block_model.dart';
+import 'package:blickgame/game/logic/block_model.dart';
+
 import 'game_manager.dart';
 
 class HintManager {
@@ -35,7 +37,11 @@ class HintManager {
     final tempGrid = _copyGrid(gameManager.grid);
 
     for (final p in block.occupiedCells) {
-      tempGrid[row + p.y][col + p.x].occupied = true;
+      final x = (col + p.x).toInt(); // ✅ تحويل إلى int
+      final y = (row + p.y).toInt(); // ✅ تحويل إلى int
+      if (y >= 0 && y < tempGrid.length && x >= 0 && x < tempGrid[0].length) {
+        tempGrid[y][x].occupied = true;
+      }
     }
 
     int score = 0;
@@ -97,6 +103,7 @@ class HintManager {
         (x) => Cell(
           occupied: original[y][x].occupied,
           locked: original[y][x].locked,
+          blockColor: original[y][x].blockColor,
         ),
       ),
     );

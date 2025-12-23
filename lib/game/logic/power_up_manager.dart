@@ -1,6 +1,6 @@
+// game/logic/power_up_manager.dart
 import 'package:blickgame/game/logic/game_manager.dart';
-
-import 'block_model.dart';
+import 'package:blickgame/game/logic/enums.dart'; // ✅ أضف هذا الاستيراد
 
 class PowerUpManager {
   void applyPowerUp(PowerUpType type, List<List<Cell>> grid, int row, int col) {
@@ -27,7 +27,7 @@ class PowerUpManager {
       for (int x = centerCol - 1; x <= centerCol + 1; x++) {
         if (y >= 0 && y < grid.length && x >= 0 && x < grid[0].length) {
           if (!grid[y][x].locked) {
-            grid[y][x] = Cell(locked: grid[y][x].locked);
+            grid[y][x].clear();
           }
         }
       }
@@ -38,14 +38,14 @@ class PowerUpManager {
     // Clear entire row
     for (int x = 0; x < grid[0].length; x++) {
       if (!grid[row][x].locked) {
-        grid[row][x] = Cell(locked: grid[row][x].locked);
+        grid[row][x].clear();
       }
     }
     
     // Clear entire column
     for (int y = 0; y < grid.length; y++) {
       if (!grid[y][col].locked) {
-        grid[y][col] = Cell(locked: grid[y][col].locked);
+        grid[y][col].clear();
       }
     }
   }

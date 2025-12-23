@@ -1,185 +1,137 @@
+// game/logic/block_model.dart
 import 'dart:math';
-import 'package:blickgame/utils/constants.dart';
 import 'package:flutter/material.dart';
 
-/// =====================
-/// ENUMS
-/// =====================
+class Vector2 {
+  final double x;
+  final double y;
 
-enum BlockType {
-  single,
-  twoVertical,
-  twoHorizontal,
-  square,
-  lineThree,
-  lShape,
-  tShape,
-  lineFour,
-  zigzag,
-  cross,
+  const Vector2(this.x, this.y);
+
+  int get xi => x.toInt();
+  int get yi => y.toInt();
 }
-
-enum PowerUpType {
-  none,
-  bomb,
-  lineClear,
-  swap,
-  hint,
-}
-
-/// =====================
-/// BLOCK SHAPE MODEL
-/// =====================
 
 class BlockShape {
-  final BlockType type;
-  final List<List<bool>> matrix;
+  final List<Vector2> occupiedCells;
   final Color color;
-  final PowerUpType powerUp;
+  final int width;
+  final int height;
+  final bool is3D; // 🔥 جديد
+  final double elevation; // 🔥 جديد
 
   BlockShape({
-    required this.type,
-    required List<List<bool>> matrix,
-    this.powerUp = PowerUpType.none,
-    Color? color,
-  })  : matrix = _cloneMatrix(matrix),
-        color = color ?? _randomColor();
+    required this.occupiedCells,
+    required this.color,
+    this.is3D = true,
+    this.elevation = 3.0,
+  })  : width = occupiedCells.map((v) => v.xi).reduce(max) + 1,
+        height = occupiedCells.map((v) => v.yi).reduce(max) + 1;
 
-  // =====================
-  // HELPERS
-  // =====================
+  // ✅ أحصل على نسخة بدون تأثير 3D (للعرض في الجريد)
+  BlockShape get flatVersion => BlockShape(
+        occupiedCells: occupiedCells,
+        color: color,
+        is3D: false,
+        elevation: 0,
+      );
 
-  static List<List<bool>> _cloneMatrix(List<List<bool>> source) {
-    return source.map((row) => List<bool>.from(row)).toList();
-  }
+  // ✅ توليد ألوان متدرجة لتأثير 3D
+  Color get topColor => Color.lerp(color, Colors.white, 0.2)!;
+  Color get sideColor => Color.lerp(color, Colors.black, 0.3)!;
+  Color get baseColor => color;
 
-  static Color _randomColor() {
-    final random = Random();
-    return GameConstants
-        .blockColors[random.nextInt(GameConstants.blockColors.length)];
-  }
-
-  int get width => matrix[0].length;
-  int get height => matrix.length;
-
-  Iterable<Point<int>> get occupiedCells sync* {
-    for (int y = 0; y < height; y++) {
-      for (int x = 0; x < width; x++) {
-        if (matrix[y][x]) yield Point(x, y);
+  BlockShape copyWithRandomRemoval(Random random, int cellsToRemove) {
+    if (occupiedCells.length <= cellsToRemove) return this;
+    
+    final newCells = List<Vector2>.from(occupiedCells);
+    for (int i = 0; i < cellsToRemove; i++) {
+      if (newCells.length > 1) {
+        newCells.removeAt(random.nextInt(newCells.length));
       }
     }
-  }
-
-  BlockShape copyWith({
-    PowerUpType? powerUp,
-    Color? color,
-  }) {
+    
     return BlockShape(
-      type: type,
-      matrix: matrix,
-      powerUp: powerUp ?? this.powerUp,
-      color: color ?? this.color,
+      occupiedCells: newCells,
+      color: color,
+      is3D: is3D,
+      elevation: elevation,
     );
   }
 
-  // =====================
-  // PREDEFINED SHAPES
-  // =====================
-
-  static final Map<BlockType, BlockShape> predefined = {
-    BlockType.single: BlockShape(
-      type: BlockType.single,
-      matrix: [
-        [true],
-      ],
-    ),
-    BlockType.twoVertical: BlockShape(
-      type: BlockType.twoVertical,
-      matrix: [
-        [true],
-        [true],
-      ],
-    ),
-    BlockType.twoHorizontal: BlockShape(
-      type: BlockType.twoHorizontal,
-      matrix: [
-        [true, true],
-      ],
-    ),
-    BlockType.square: BlockShape(
-      type: BlockType.square,
-      matrix: [
-        [true, true],
-        [true, true],
-      ],
-    ),
-    BlockType.lineThree: BlockShape(
-      type: BlockType.lineThree,
-      matrix: [
-        [true, true, true],
-      ],
-    ),
-    BlockType.lShape: BlockShape(
-      type: BlockType.lShape,
-      matrix: [
-        [true, false],
-        [true, false],
-        [true, true],
-      ],
-    ),
-    BlockType.tShape: BlockShape(
-      type: BlockType.tShape,
-      matrix: [
-        [false, true, false],
-        [true, true, true],
-      ],
-    ),
-    BlockType.lineFour: BlockShape(
-      type: BlockType.lineFour,
-      matrix: [
-        [true, true, true, true],
-      ],
-    ),
-    BlockType.zigzag: BlockShape(
-      type: BlockType.zigzag,
-      matrix: [
-        [true, true, false],
-        [false, true, true],
-      ],
-    ),
-    BlockType.cross: BlockShape(
-      type: BlockType.cross,
-      matrix: [
-        [false, true, false],
-        [true, true, true],
-        [false, true, false],
-      ],
-    ),
-  };
-
-  // =====================
-  // RANDOM GENERATION
-  // =====================
-
-  static BlockShape randomSimple(Random r) {
-    const types = [
-      BlockType.single,
-      BlockType.twoVertical,
-      BlockType.twoHorizontal,
-      BlockType.square,
+  static BlockShape randomSimple(Random random) {
+    final simpleShapes = [
+      BlockShape(
+        occupiedCells: [Vector2(0, 0)],
+        color: _getRandomColor(random),
+      ),
+      BlockShape(
+        occupiedCells: [Vector2(0, 0), Vector2(1, 0)],
+        color: _getRandomColor(random),
+      ),
+      BlockShape(
+        occupiedCells: [Vector2(0, 0), Vector2(0, 1)],
+        color: _getRandomColor(random),
+      ),
+      BlockShape(
+        occupiedCells: [Vector2(0, 0), Vector2(1, 0), Vector2(0, 1)],
+        color: _getRandomColor(random),
+      ),
     ];
-    return predefined[types[r.nextInt(types.length)]]!.copyWith();
+    return simpleShapes[random.nextInt(simpleShapes.length)];
   }
 
-  static BlockShape randomComplex(Random r) {
-    const types = [
-      BlockType.lineThree,
-      BlockType.lShape,
-      BlockType.tShape,
-      BlockType.lineFour,
-      BlockType.zigzag,
-      BlockType.cross,
+  static BlockShape randomComplex(Random random) {
+    final complexShapes = [
+      BlockShape(
+        occupiedCells: [
+          Vector2(0, 0), Vector2(1, 0),
+          Vector2(0, 1), Vector2(1, 1),
+        ],
+        color: _getRandomColor(random),
+      ),
+      BlockShape(
+        occupiedCells: [
+          Vector2(0, 0), Vector2(1, 0), Vector2(2, 0),
+          Vector2(1, 1),
+        ],
+        color: _getRandomColor(random),
+      ),
+      BlockShape(
+        occupiedCells: [
+          Vector2(0, 0),
+          Vector2(0, 1),
+          Vector2(1, 1),
+          Vector2(2, 1),
+        ],
+        color: _getRandomColor(random),
+      ),
+      BlockShape(
+        occupiedCells: [
+          Vector2(0, 0), Vector2(1, 0),
+          Vector2(1, 1), Vector2(2, 1),
+        ],
+        color: _getRandomColor(random),
+      ),
     ];
-    return predefined[types[r.nextInt(types.length)]]!.copyWith();
+    return complexShapes[random.nextInt(complexShapes.length)];
+  }
+
+  static Color _getRandomColor(Random random) {
+    final colors = [
+      Color(0xFFF44336), // Red
+      Color(0xFF2196F3), // Blue
+      Color(0xFF4CAF50), // Green
+      Color(0xFFFF9800), // Orange
+      Color(0xFF9C27B0), // Purple
+      Color(0xFF00BCD4), // Cyan
+      Color(0xFFFFEB3B), // Yellow
+      Color(0xFFE91E63), // Pink
+      Color(0xFF795548), // Brown
+      Color(0xFF607D8B), // Blue Grey
+      Color(0xFF8BC34A), // Light Green
+      Color(0xFFFF5722), // Deep Orange
+    ];
+    return colors[random.nextInt(colors.length)];
   }
 }
