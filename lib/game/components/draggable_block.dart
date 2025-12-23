@@ -1,18 +1,23 @@
+import 'dart:ui';
 import 'package:blickgame/game/logic/block_model.dart';
 import 'package:flame/components.dart';
 import 'package:flame/events.dart';
+import 'package:flame/effects.dart';
 import 'package:flutter/material.dart';
-
 
 class DraggableBlock extends PositionComponent with DragCallbacks {
   final BlockShape block;
   final int index;
-  final void Function(DraggableBlock component, Vector2 worldPos)? onDrop;
-  final void Function(DraggableBlock block)? onDragStarted; // ✅ غيرنا الاسم
   final bool isUsed;
+  final Vector2 homePosition; // ✅ أضف هذا
 
-  bool _isDragging = false;
+  final void Function(DraggableBlock block, Vector2 worldPos)? onDrop;
+
+  bool _dragging = false;
   late Vector2 _originalPosition;
+
+  double _scale = 1.0;
+  double _glow = 0.0;
 
   DraggableBlock({
     required this.block,
@@ -20,109 +25,132 @@ class DraggableBlock extends PositionComponent with DragCallbacks {
     required Vector2 position,
     required Vector2 size,
     required this.isUsed,
+    required this.homePosition, // ✅ أضف هذا
     this.onDrop,
-    this.onDragStarted, // ✅ غيرنا الاسم
-    Vector2? originalPosition,
   }) : super(position: position, size: size) {
-    _originalPosition = originalPosition ?? position.clone();
+    _originalPosition = position.clone();
+  }
+
+  Vector2 get originalPosition => _originalPosition;
+
+  @override
+  void onMount() {
+    super.onMount();
+    _originalPosition = homePosition.clone(); // ✅ استخدم homePosition
+  }
+
+  @override
+  void update(double dt) {
+    super.update(dt);
+    _scale += ((_dragging ? 1.1 : 1.0) - _scale) * 10 * dt;
+    _glow += ((_dragging ? 1.0 : 0.0) - _glow) * 10 * dt;
   }
 
   @override
   void render(Canvas canvas) {
-    super.render(canvas);
+    canvas.save();
+    canvas.translate(size.x / 2, size.y / 2);
+    canvas.scale(_scale);
+    canvas.translate(-size.x / 2, -size.y / 2);
 
-    final cellWidth = size.x / block.width;
-    final cellHeight = size.y / block.height;
+    final cellW = size.x / block.width;
+    final cellH = size.y / block.height;
 
-    for (final cellOffset in block.occupiedCells) {
-      final cellRect = Rect.fromLTWH(
-        cellOffset.x * cellWidth,
-        cellOffset.y * cellHeight,
-        cellWidth - 2, // Padding
-        cellHeight - 2,
+    for (final cell in block.occupiedCells) {
+      final rect = Rect.fromLTWH(
+        cell.x * cellW,
+        cell.y * cellH,
+        cellW - 2,
+        cellH - 2,
       );
 
-      final blockColor = isUsed ? block.color.withOpacity(0.3) : block.color;
+      if (_glow > 0) {
+        final glowPaint = Paint()
+          ..color = block.color.withOpacity(0.4 * _glow)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.outer, 8);
 
-      final paint = Paint()
-        ..color = blockColor
-        ..style = PaintingStyle.fill;
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(rect, const Radius.circular(6)),
+          glowPaint,
+        );
+      }
 
-      final borderPaint = Paint()
-        ..color = Colors.white.withOpacity(isUsed ? 0.1 : 0.3)
+      final fill = Paint()..color = block.color;
+      final border = Paint()
+        ..color = Colors.white.withOpacity(0.3)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.0;
+        ..strokeWidth = 2;
 
       canvas.drawRRect(
-        RRect.fromRectAndRadius(cellRect, const Radius.circular(4.0)),
-        paint,
+        RRect.fromRectAndRadius(rect, const Radius.circular(6)),
+        fill,
       );
       canvas.drawRRect(
-        RRect.fromRectAndRadius(cellRect, const Radius.circular(4.0)),
-        borderPaint,
+        RRect.fromRectAndRadius(rect, const Radius.circular(6)),
+        border,
       );
     }
 
-    if (isUsed) {
-      final usedPaint = Paint()
-        ..color = Colors.red.withOpacity(0.7)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 3.0;
-
-      final center = size / 2;
-      const crossSize = 20.0;
-
-      canvas.drawLine(
-        Offset(center.x - crossSize, center.y - crossSize),
-        Offset(center.x + crossSize, center.y + crossSize),
-        usedPaint,
-      );
-      canvas.drawLine(
-        Offset(center.x + crossSize, center.y - crossSize),
-        Offset(center.x - crossSize, center.y + crossSize),
-        usedPaint,
-      );
-    }
+    canvas.restore();
   }
 
   @override
-  void onDragStart(DragStartEvent event) {
-    if (isUsed) return;
-    
-    _isDragging = true;
-    _originalPosition = position.clone();
-    priority = 100;
-    
-    if (onDragStarted != null) { // ✅ غيرنا الاسم هنا
-      onDragStarted!(this);
-    }
-  }
+@override
+void onDragStart(DragStartEvent event) {
+  if (isUsed) return;
+  _dragging = true;
+  priority = 100;
+}
 
   @override
   void onDragUpdate(DragUpdateEvent event) {
-    if (_isDragging && !isUsed) {
-      position += event.localDelta;
-    }
+    if (!_dragging || isUsed) return;
+    position += event.localDelta;
   }
 
   @override
   void onDragEnd(DragEndEvent event) {
-    _isDragging = false;
+    _dragging = false;
     priority = 0;
-
     if (isUsed) return;
-
-    if (onDrop != null) {
-      onDrop!(this, position.clone());
-    }
+    // ✅ أرسل موقع البلوك (الزاوية العلوية اليسرى)
+    onDrop?.call(this, position.clone());
   }
 
-  @override
-  void onDragCancel(DragCancelEvent event) {
-    _isDragging = false;
-    position = _originalPosition;
-    priority = 0;
+  void returnToOriginal() {
+    // ✅ العودة لـ homePosition مباشرة
+    children.whereType<MoveEffect>().forEach((effect) {
+      effect.removeFromParent();
+    });
+    
+    add(
+      MoveEffect.to(
+        homePosition,
+        EffectController(
+          duration: 0.25,
+          curve: Curves.easeOutBack,
+        ),
+      ),
+    );
   }
 
-  Vector2 get originalPosition => _originalPosition;
+  void shakeBack() {
+    children.whereType<MoveEffect>().forEach((effect) {
+      effect.removeFromParent();
+    });
+    
+    add(
+      MoveEffect.by(
+        Vector2(12, 0),
+        EffectController(duration: 0.05, alternate: true, repeatCount: 4),
+      ),
+    );
+
+    add(
+      MoveEffect.to(
+        homePosition,
+        EffectController(duration: 0.35, curve: Curves.easeOutBack),
+      ),
+    );
+  }
 }

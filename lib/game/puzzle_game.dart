@@ -1,8 +1,10 @@
+import 'package:blickgame/game/components/game_over_component.dart';
 import 'package:blickgame/game/logic/block_model.dart';
 import 'package:blickgame/game/logic/game_manager.dart';
+import 'package:blickgame/utils/constants.dart';
+import 'package:flame/events.dart';
 import 'package:flame/game.dart';
 import 'package:flame/components.dart';
-import 'package:flame/events.dart';
 import 'package:flame/effects.dart';
 import 'package:flutter/material.dart';
 
@@ -11,22 +13,21 @@ import 'components/draggable_block.dart';
 
 class PuzzleGame extends FlameGame with DragCallbacks, TapCallbacks {
   late GameManager gameManager;
-
   late GridComponent gridComponent;
+
   final List<DraggableBlock> blockComponents = [];
 
-  final double cellSize = 40;
+  final double cellSize = GameConstants.cellSize;
   Vector2 gridPosition = Vector2.zero();
 
-  bool isAnimating = false;
-  
-  // ✅ جديدة: البلوك المحمول حاليًا
-  DraggableBlock? currentDraggingBlock;
-  Vector2? originalBlockPosition;
-
+  // HUD
   late TextComponent scoreText;
   late TextComponent levelText;
-  late TextComponent blocksText;
+  
+  // Game State
+  bool _gameOver = false;
+  bool _gameWon = false;
+  GameOverComponent? _gameOverComponent;
 
   @override
   Color backgroundColor() => const Color(0xFF1A1A2E);
@@ -41,381 +42,247 @@ class PuzzleGame extends FlameGame with DragCallbacks, TapCallbacks {
       powerUpManager: PowerUpManager(),
     );
 
-    final gridSizePx = gameManager.gridSize * cellSize;
+    final gridPx = gameManager.gridSize * cellSize;
 
     gridPosition = Vector2(
-      (size.x - gridSizePx) / 2,
+      (size.x - gridPx) / 2,
       size.y * 0.12,
     );
 
     gridComponent = GridComponent(
       gameManager: gameManager,
-      cellSize: cellSize,
       position: gridPosition,
     );
 
     add(gridComponent);
-
-    _spawnBlocks();
     _addHUD();
+    _spawnBlocks();
+    
+    // Check initial game state
+    _checkGameState();
   }
 
-  // =========================
-  // BLOCK SPAWN
-  // =========================
+  // ================= GAME STATE =================
+  void _checkGameState() {
+    if (_gameOver || _gameWon) return;
 
+    // Check for WIN condition (all blocks placed successfully)
+    bool allBlocksPlaced = true;
+    for (int i = 0; i < gameManager.playerBlocks.length; i++) {
+      if (!gameManager.usedBlocks[i]) {
+        allBlocksPlaced = false;
+        break;
+      }
+    }
+
+    if (allBlocksPlaced) {
+      _showGameOver(
+        title: '🎉 LEVEL COMPLETE!',
+        message: 'You placed all blocks perfectly!\nScore: ${gameManager.scoreManager.currentScore}',
+        color: Colors.green,
+      );
+      _gameWon = true;
+      return;
+    }
+
+    // Check for GAME OVER condition (no valid moves left)
+    bool hasValidMove = false;
+    for (int i = 0; i < gameManager.playerBlocks.length; i++) {
+      if (gameManager.usedBlocks[i]) continue;
+      
+      final block = gameManager.playerBlocks[i];
+      
+      // Check if this block can be placed anywhere on the grid
+      for (int y = 0; y <= gameManager.gridSize - block.height; y++) {
+        for (int x = 0; x <= gameManager.gridSize - block.width; x++) {
+          if (gameManager.canPlaceBlock(block, y, x)) {
+            hasValidMove = true;
+            break;
+          }
+        }
+        if (hasValidMove) break;
+      }
+      if (hasValidMove) break;
+    }
+
+    if (!hasValidMove) {
+      _showGameOver(
+        title: '😢 GAME OVER',
+        message: 'No valid moves left!\nFinal Score: ${gameManager.scoreManager.currentScore}',
+        color: Colors.red,
+      );
+      _gameOver = true;
+    }
+  }
+
+  void _showGameOver({
+    required String title,
+    required String message,
+    required Color color,
+  }) {
+    if (_gameOverComponent != null) {
+      _gameOverComponent!.removeFromParent();
+    }
+
+    _gameOverComponent = GameOverComponent(
+      title: title,
+      message: message,
+      color: color,
+      onRestart: _restartGame,
+      size: size,
+    );
+
+    add(_gameOverComponent!);
+  }
+
+  void _restartGame() {
+    // Reset game state
+    _gameOver = false;
+    _gameWon = false;
+    
+    if (_gameOverComponent != null) {
+      _gameOverComponent!.removeFromParent();
+      _gameOverComponent = null;
+    }
+
+    // Clear all blocks
+    for (final block in blockComponents) {
+      block.removeFromParent();
+    }
+    blockComponents.clear();
+
+    // Reset game manager
+    gameManager = GameManager(
+      scoreManager: ScoreManager(),
+      levelManager: LevelManager(),
+      powerUpManager: PowerUpManager(),
+    );
+
+    // Reset grid
+    gridComponent.removeFromParent();
+    gridComponent = GridComponent(
+      gameManager: gameManager,
+      position: gridPosition,
+    );
+    add(gridComponent);
+
+    // Start fresh
+    _spawnBlocks();
+    _updateHUD();
+  }
+
+  // ================= BLOCKS =================
   void _spawnBlocks() {
     for (final b in blockComponents) {
-      remove(b);
+      b.removeFromParent();
     }
     blockComponents.clear();
 
     final spacing = size.x / 3;
 
     for (int i = 0; i < gameManager.playerBlocks.length; i++) {
+      if (gameManager.usedBlocks[i]) continue;
+
       final block = gameManager.playerBlocks[i];
 
-      final blockSize = Vector2(
-        block.width * cellSize,
-        block.height * cellSize,
-      );
+      final blockSize =
+          Vector2(block.width * cellSize, block.height * cellSize);
 
-      // ✅ جديدة: البلوكات تظهر من تحت الشاشة وتطلع
-      final position = Vector2(
+      final start = Vector2(
         spacing * i + spacing / 2 - blockSize.x / 2,
-        size.y + 100, // تبدأ من تحت الشاشة
+        size.y + 120,
       );
 
-      final targetPosition = Vector2(
+      final target = Vector2(
         spacing * i + spacing / 2 - blockSize.x / 2,
-        size.y * 0.78, // المكان النهائي
+        size.y * 0.78,
       );
 
-final component = DraggableBlock(
-  block: block,
-  index: i,
-  size: blockSize,
-  position: position,
-  isUsed: gameManager.isBlockUsed(i),
-  onDrop: _onBlockDropped,
-  onDragStarted: _onBlockDragStart, // ✅ غيرنا الاسم هنا
-  originalPosition: targetPosition.clone(),
-);
+      final comp = DraggableBlock(
+        block: block,
+        index: i,
+        position: start,
+        size: blockSize,
+        isUsed: false,
+        homePosition: target,
+        onDrop: _onBlockDropped,
+      );
 
-      // ✅ أنيميشن ظهور البلوك من تحت
-      component.add(
+      comp.add(
         MoveEffect.to(
-          targetPosition,
-          EffectController(
-            duration: 0.5,
-            curve: Curves.easeOutBack,
-          ),
+          target,
+          EffectController(duration: 0.35, curve: Curves.easeOutBack),
         ),
       );
 
-      add(component);
-      blockComponents.add(component);
+      add(comp);
+      blockComponents.add(comp);
     }
+
+    _updateHUD();
+    
+    // Check game state after spawning blocks
+    _checkGameState();
   }
 
-  // =========================
-  // DRAG LOGIC
-  // =========================
-
-  void _onBlockDragStart(DraggableBlock block) {
-    // ✅ نحفظ البلوك الحالي
-    currentDraggingBlock = block;
-    originalBlockPosition = block.position.clone();
+  void _onBlockDropped(DraggableBlock block, Vector2 worldPos) {
+    // Don't accept input if game is over
+    if (_gameOver || _gameWon) return;
     
-    // ✅ البلوك ينفصل ويرتفع شوية
+    final shape = block.block;
+    final center = worldPos + block.size / 2;
+
+    final gx =
+        ((center.x - gridPosition.x) / cellSize - shape.width / 2).round();
+    final gy =
+        ((center.y - gridPosition.y) / cellSize - shape.height / 2).round();
+
+    final x = gx.clamp(0, gameManager.gridSize - shape.width);
+    final y = gy.clamp(0, gameManager.gridSize - shape.height);
+
+    // ❌ Drop برّه أو مكان غلط
+    if (!gameManager.canPlaceBlock(shape, y, x)) {
+      block.returnToOriginal();
+      return;
+    }
+
+    // ❌ فشل placement
+    final placed = gameManager.placeBlock(block.index, y, x);
+    if (!placed) {
+      block.returnToOriginal();
+      return;
+    }
+
+    // ✅ Placement صحيح
+    final snap = Vector2(
+      gridPosition.x + x * cellSize,
+      gridPosition.y + y * cellSize,
+    );
+
     block.add(
-      MoveEffect.by(
-        Vector2(0, -20),
-        EffectController(
-          duration: 0.1,
-          curve: Curves.easeOut,
-        ),
-      ),
-    );
-  }
-
-  void _onBlockDropped(DraggableBlock component, Vector2 worldPos) {
-    if (isAnimating) return;
-
-    final BlockShape block = component.block;
-
-    // ✅ إلغاء حفظ البلوك الحالي
-    currentDraggingBlock = null;
-
-    // ✅ الحساب من المركز
-    final blockCenter = Vector2(
-      worldPos.x + component.size.x / 2,
-      worldPos.y + component.size.y / 2,
-    );
-    
-    final centerGridX = (blockCenter.x - gridPosition.x) / cellSize;
-    final centerGridY = (blockCenter.y - gridPosition.y) / cellSize;
-    
-    final topLeftGridX = centerGridX - (block.width / 2);
-    final topLeftGridY = centerGridY - (block.height / 2);
-    
-    final gridX = topLeftGridX.round();
-    final gridY = topLeftGridY.round();
-    
-    final clampedGridX = gridX.clamp(0, gameManager.gridSize - block.width);
-    final clampedGridY = gridY.clamp(0, gameManager.gridSize - block.height);
-
-    print('🎯 Placement Debug:');
-    print('  Block center: ($centerGridX, $centerGridY)');
-    print('  Top-left grid: ($topLeftGridX, $topLeftGridY)');
-    print('  Rounded to: ($gridX, $gridY)');
-    print('  Clamped to: ($clampedGridY, $clampedGridX)');
-    print('  Block size: ${block.width}x${block.height}');
-
-    // ✅ Check if block is used
-    if (gameManager.isBlockUsed(component.index)) {
-      print('❌ Block already used!');
-      _returnBlockToOriginal(component);
-      return;
-    }
-
-    if (!gameManager.canPlaceBlock(block, clampedGridY, clampedGridX)) {
-      print('❌ Cannot place here!');
-      _returnBlockToOriginal(component);
-      return;
-    }
-
-    final result = gameManager.placeBlock(
-      component.index,
-      clampedGridY,
-      clampedGridX,
-    );
-
-    if (!result.success) {
-      print('❌ GameManager rejected placement');
-      _returnBlockToOriginal(component);
-      return;
-    }
-
-    print('✅ Placement successful!');
-    
-    // ✅ أنيميشن وضع البلوك في المكان
-    final snappedPosition = Vector2(
-      gridPosition.x + clampedGridX * cellSize,
-      gridPosition.y + clampedGridY * cellSize,
-    );
-    
-    component.add(
       MoveEffect.to(
-        snappedPosition,
-        EffectController(
-          duration: 0.2,
-          curve: Curves.easeOut,
-        ),
+        snap,
+        EffectController(duration: 0.15),
       ),
     );
-    
-    // ✅ تأثير بسيط عند وضع البلوك
-    _addPlacementEffect(clampedGridX, clampedGridY, block);
 
-    // ✅ تأخير حذف البلوك بعد الأنيميشن
-    Future.delayed(const Duration(milliseconds: 200), () {
-      component.removeFromParent();
-      _spawnBlocks();
-      _updateHUD();
+    block.add(
+      ScaleEffect.by(
+        Vector2.all(0.15),
+        EffectController(duration: 0.08, reverseDuration: 0.08),
+      ),
+    );
 
-      // ✅ إذا فيه خطوط اتمسحت، نلعب أنيميشن السقوط
-      if (result.clearedLines != null && result.clearedLines!.linesCleared > 0) {
-        _playLineClearAnimation(result.clearedLines!);
-      }
-
-      if (result.needsNewBlocks) {
-        _showMessage("New blocks!");
-      }
-
-      if (gameManager.isGameOver) {
-        Future.delayed(const Duration(milliseconds: 1000), () {
-          _showGameOver();
-        });
-      }
+    // ✅ اختفاء فقط بعد placement الصحيح
+    Future.delayed(const Duration(milliseconds: 180), () {
+      block.removeFromParent();
+      _spawnBlocks(); // This will call _checkGameState
     });
   }
 
-  // ✅ جديدة: أنيميشن سقوط الصفوف
-  void _playLineClearAnimation(ClearedLines cleared) {
-    isAnimating = true;
-    
-    // 1. أولاً نلمع الخطوط الممسوحة
-    final highlightEffects = <Component>[];
-    
-    for (final row in cleared.clearedRows) {
-      for (int x = 0; x < gameManager.gridSize; x++) {
-        final effect = _createHighlightEffect(row, x, Colors.yellow);
-        add(effect);
-        highlightEffects.add(effect);
-      }
-    }
-    
-    for (final col in cleared.clearedCols) {
-      for (int y = 0; y < gameManager.gridSize; y++) {
-        final effect = _createHighlightEffect(y, col, Colors.yellow);
-        add(effect);
-        highlightEffects.add(effect);
-      }
-    }
-    
-    // 2. بعد تلميع، نبدأ أنيميشن السقوط
-    Future.delayed(const Duration(milliseconds: 300), () {
-      // نحذف التلميع
-      for (final effect in highlightEffects) {
-        remove(effect);
-      }
-      
-      // نلعب أنيميشن السقوط
-      final fallingEffects = <Component>[];
-      
-      for (final row in cleared.clearedRows) {
-        for (int x = 0; x < gameManager.gridSize; x++) {
-          if (gameManager.grid[row][x].occupied) {
-            final effect = _createFallingEffect(row, x);
-            add(effect);
-            fallingEffects.add(effect);
-          }
-        }
-      }
-      
-      for (final col in cleared.clearedCols) {
-        for (int y = 0; y < gameManager.gridSize; y++) {
-          if (gameManager.grid[y][col].occupied) {
-            final effect = _createFallingEffect(y, col);
-            add(effect);
-            fallingEffects.add(effect);
-          }
-        }
-      }
-      
-      // 3. بعد الأنيميشن، نمسح الخطوط ونكمل
-      Future.delayed(const Duration(milliseconds: 800), () {
-        // نحذف أنيميشن السقوط
-        for (final effect in fallingEffects) {
-          remove(effect);
-        }
-        
-        // نطبق المسح الفعلي
-        gameManager.applyLineClear(cleared);
-        
-        // نحدث الـ HUD
-        _updateHUD();
-        
-        isAnimating = false;
-      });
-    });
-  }
-
-  RectangleComponent _createHighlightEffect(int row, int col, Color color) {
-    return RectangleComponent(
-      size: Vector2.all(cellSize - 4),
-      position: Vector2(
-        gridPosition.x + col * cellSize + 2,
-        gridPosition.y + row * cellSize + 2,
-      ),
-      paint: Paint()..color = color.withOpacity(0.7),
-    );
-  }
-
-  PositionComponent _createFallingEffect(int row, int col) {
-    final cell = gameManager.grid[row][col];
-    
-    final particle = RectangleComponent(
-      size: Vector2(cellSize - 4, cellSize - 4),
-      position: Vector2(
-        gridPosition.x + col * cellSize + 2,
-        gridPosition.y + row * cellSize + 2,
-      ),
-      paint: Paint()..color = cell.blockColor ?? Colors.white,
-    );
-    
-    // أنيميشن سقوط مع دوران
-    particle.add(
-      MoveEffect.by(
-        Vector2(0, 300),
-        EffectController(
-          duration: 0.8,
-          curve: Curves.easeIn,
-        ),
-      ),
-    );
-    
-    particle.add(
-      OpacityEffect.to(
-        0.0,
-        EffectController(
-          duration: 0.8,
-        ),
-      ),
-    );
-    
-    particle.add(
-      RotateEffect.by(
-        2 * 3.14159, // دورة كاملة
-        EffectController(
-          duration: 0.8,
-        ),
-      ),
-    );
-    
-    return particle;
-  }
-
-  void _addPlacementEffect(int gridX, int gridY, BlockShape block) {
-    for (final cellOffset in block.occupiedCells) {
-      final cellX = gridX + cellOffset.x;
-      final cellY = gridY + cellOffset.y;
-      
-      final effect = CircleComponent(
-        radius: cellSize / 3,
-        position: Vector2(
-          gridPosition.x + cellX * cellSize + cellSize / 2,
-          gridPosition.y + cellY * cellSize + cellSize / 2,
-        ),
-        paint: Paint()..color = block.color.withOpacity(0.7),
-      );
-      
-      effect.add(
-        ScaleEffect.by(
-          Vector2.all(1.5),
-          EffectController(
-            duration: 0.3,
-            reverseDuration: 0.1,
-          ),
-        )..onComplete = () {
-          remove(effect);
-        },
-      );
-      
-      add(effect);
-    }
-  }
-
-  void _returnBlockToOriginal(DraggableBlock block) {
-    block.add(
-      MoveEffect.to(
-        block.originalPosition,
-        EffectController(
-          duration: 0.3,
-          curve: Curves.easeOutBack,
-        ),
-      ),
-    );
-  }
-
-  // =========================
-  // HUD
-  // =========================
-
+  // ================= HUD =================
   void _addHUD() {
     scoreText = TextComponent(
-      text: 'Score: 0',
       position: Vector2(20, 20),
       textRenderer: TextPaint(
         style: const TextStyle(
@@ -427,167 +294,17 @@ final component = DraggableBlock(
     );
 
     levelText = TextComponent(
-      text: 'Level: 1',
-      position: Vector2(size.x - 130, 20),
+      position: Vector2(size.x - 120, 20),
       textRenderer: TextPaint(
-        style: const TextStyle(
-          color: Colors.cyan,
-          fontSize: 20,
-        ),
-      ),
-    );
-    
-    blocksText = TextComponent(
-      text: 'Blocks: 3',
-      position: Vector2(size.x / 2 - 50, 20),
-      textRenderer: TextPaint(
-        style: const TextStyle(
-          color: Colors.yellow,
-          fontSize: 20,
-        ),
+        style: const TextStyle(color: Colors.cyan, fontSize: 20),
       ),
     );
 
-    add(scoreText);
-    add(levelText);
-    add(blocksText);
+    addAll([scoreText, levelText]);
   }
 
   void _updateHUD() {
     scoreText.text = 'Score: ${gameManager.scoreManager.currentScore}';
     levelText.text = 'Level: ${gameManager.levelManager.currentLevel}';
-    
-    final blocksLeft = 3 - gameManager.blocksPlaced;
-    blocksText.text = 'Blocks: $blocksLeft';
-  }
-
-  void _showMessage(String message) {
-    final messageText = TextComponent(
-      text: message,
-      position: Vector2(size.x / 2, size.y * 0.4),
-      anchor: Anchor.center,
-      textRenderer: TextPaint(
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 24,
-          fontWeight: FontWeight.bold,
-          shadows: [
-            Shadow(
-              color: Colors.black,
-              offset: Offset(2, 2),
-              blurRadius: 4,
-            )
-          ],
-        ),
-      ),
-    );
-
-    add(messageText);
-
-    Future.delayed(const Duration(seconds: 2), () {
-      if (messageText.isMounted) {
-        remove(messageText);
-      }
-    });
-  }
-
-  // =========================
-  // GAME OVER
-  // =========================
-
-  void _showGameOver() {
-    final overlay = RectangleComponent(
-      size: size,
-      paint: Paint()..color = Colors.black.withOpacity(0.75),
-    );
-
-    final gameOverText = TextComponent(
-      text: 'GAME OVER',
-      anchor: Anchor.center,
-      position: size / 2,
-      textRenderer: TextPaint(
-        style: const TextStyle(
-          fontSize: 42,
-          color: Colors.redAccent,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-    );
-
-    final finalScoreText = TextComponent(
-      text: 'Score: ${gameManager.scoreManager.currentScore}',
-      anchor: Anchor.center,
-      position: size / 2 + Vector2(0, 60),
-      textRenderer: TextPaint(
-        style: const TextStyle(
-          fontSize: 32,
-          color: Colors.yellow,
-        ),
-      ),
-    );
-
-    final button = RectangleComponent(
-      size: Vector2(200, 60),
-      position: size / 2 + Vector2(-100, 120),
-      paint: Paint()..color = Colors.green,
-    );
-
-    final buttonText = TextComponent(
-      text: 'PLAY AGAIN',
-      position: size / 2 + Vector2(-60, 130),
-      textRenderer: TextPaint(
-        style: const TextStyle(
-          fontSize: 24,
-          color: Colors.white,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-    );
-
-    add(overlay);
-    add(gameOverText);
-    add(finalScoreText);
-    add(button);
-    add(buttonText);
-
-    final tapArea = _GameOverButton(
-      position: size / 2 + Vector2(-100, 120),
-      size: Vector2(200, 60),
-      onTap: () {
-        resetGame();
-        children.whereType<RectangleComponent>().forEach(remove);
-        children.whereType<TextComponent>().forEach(remove);
-        children.whereType<_GameOverButton>().forEach(remove);
-      },
-    );
-
-    add(tapArea);
-  }
-
-  void resetGame() {
-    gameManager.resetGame();
-    _spawnBlocks();
-    _updateHUD();
-  }
-
-  @override
-  void update(double dt) {
-    super.update(dt);
-    _updateHUD();
-  }
-}
-
-class _GameOverButton extends PositionComponent with TapCallbacks {
-  final VoidCallback onTap;
-  
-  _GameOverButton({
-    required Vector2 position,
-    required Vector2 size,
-    required this.onTap,
-  }) : super(position: position, size: size);
-  
-  @override
-  void onTapDown(TapDownEvent event) {
-    onTap();
   }
 }

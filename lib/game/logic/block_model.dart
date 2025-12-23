@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'package:blickgame/utils/constants.dart';
 import 'package:flutter/material.dart';
 
 /// =====================
@@ -27,7 +28,7 @@ enum PowerUpType {
 }
 
 /// =====================
-/// BLOCK SHAPE
+/// BLOCK SHAPE MODEL
 /// =====================
 
 class BlockShape {
@@ -44,23 +45,18 @@ class BlockShape {
   })  : matrix = _cloneMatrix(matrix),
         color = color ?? _randomColor();
 
+  // =====================
+  // HELPERS
+  // =====================
+
   static List<List<bool>> _cloneMatrix(List<List<bool>> source) {
     return source.map((row) => List<bool>.from(row)).toList();
   }
 
   static Color _randomColor() {
     final random = Random();
-    final colors = [
-      Colors.orange,
-      Colors.green,
-      Colors.blue,
-      Colors.purple,
-      Colors.red,
-      Colors.teal,
-      Colors.cyan,
-      Colors.yellow,
-    ];
-    return colors[random.nextInt(colors.length)];
+    return GameConstants
+        .blockColors[random.nextInt(GameConstants.blockColors.length)];
   }
 
   int get width => matrix[0].length;
@@ -69,15 +65,15 @@ class BlockShape {
   Iterable<Point<int>> get occupiedCells sync* {
     for (int y = 0; y < height; y++) {
       for (int x = 0; x < width; x++) {
-        if (matrix[y][x]) {
-          yield Point(x, y);
-        }
+        if (matrix[y][x]) yield Point(x, y);
       }
     }
   }
 
-  // Copy with optional PowerUp or Color
-  BlockShape copyWith({PowerUpType? powerUp, Color? color}) {
+  BlockShape copyWith({
+    PowerUpType? powerUp,
+    Color? color,
+  }) {
     return BlockShape(
       type: type,
       matrix: matrix,
@@ -87,7 +83,7 @@ class BlockShape {
   }
 
   // =====================
-  // PREDEFINED BLOCKS
+  // PREDEFINED SHAPES
   // =====================
 
   static final Map<BlockType, BlockShape> predefined = {
@@ -161,8 +157,12 @@ class BlockShape {
     ),
   };
 
+  // =====================
+  // RANDOM GENERATION
+  // =====================
+
   static BlockShape randomSimple(Random r) {
-    final types = [
+    const types = [
       BlockType.single,
       BlockType.twoVertical,
       BlockType.twoHorizontal,
@@ -172,7 +172,7 @@ class BlockShape {
   }
 
   static BlockShape randomComplex(Random r) {
-    final types = [
+    const types = [
       BlockType.lineThree,
       BlockType.lShape,
       BlockType.tShape,

@@ -5,53 +5,52 @@ import '../../utils/constants.dart';
 
 class GridComponent extends PositionComponent {
   final GameManager gameManager;
-  final double cellSize;
-  
+
   GridComponent({
     required this.gameManager,
-    required this.cellSize,
     required Vector2 position,
-  }) : super(position: position, size: Vector2.all(cellSize * gameManager.gridSize));
-  
+  }) : super(
+          position: position,
+          size: Vector2.all(
+            GameConstants.cellSize * GameConstants.gridSize,
+          ),
+        );
+
   @override
   void render(Canvas canvas) {
     super.render(canvas);
-    
-    final paint = Paint()
-      ..style = PaintingStyle.fill;
-    
-    final gridPaint = Paint()
+
+    final paint = Paint()..style = PaintingStyle.fill;
+    final borderPaint = Paint()
       ..color = GameConstants.gridLineColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0;
-    
-    // Draw cells
+      ..style = PaintingStyle.stroke;
+
     for (int y = 0; y < gameManager.gridSize; y++) {
       for (int x = 0; x < gameManager.gridSize; x++) {
         final cell = gameManager.grid[y][x];
-        final cellRect = Rect.fromLTWH(
-          x * cellSize,
-          y * cellSize,
-          cellSize - GameConstants.blockPadding,
-          cellSize - GameConstants.blockPadding,
+
+        paint.color = cell.locked
+            ? GameConstants.lockedCellColor
+            : cell.occupied
+                ? cell.blockColor!
+                : GameConstants.emptyCellColor;
+
+        final rect = Rect.fromLTWH(
+          x * GameConstants.cellSize,
+          y * GameConstants.cellSize,
+          GameConstants.cellSize - GameConstants.blockPadding,
+          GameConstants.cellSize - GameConstants.blockPadding,
         );
-        
-        // Determine cell color
-        if (cell.locked) {
-          paint.color = GameConstants.lockedCellColor;
-        } else if (cell.occupied) {
-          paint.color = cell.blockColor ?? GameConstants.occupiedCellColor;
-        } else {
-          paint.color = GameConstants.emptyCellColor;
-        }
-        
-        // Draw cell
-        canvas.drawRect(cellRect, paint);
-        
-        // Draw grid lines
+
+        canvas.drawRect(rect, paint);
         canvas.drawRect(
-          Rect.fromLTWH(x * cellSize, y * cellSize, cellSize, cellSize),
-          gridPaint,
+          Rect.fromLTWH(
+            x * GameConstants.cellSize,
+            y * GameConstants.cellSize,
+            GameConstants.cellSize,
+            GameConstants.cellSize,
+          ),
+          borderPaint,
         );
       }
     }

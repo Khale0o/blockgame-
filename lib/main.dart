@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flame/game.dart';
-import 'game/puzzle_game.dart';
 import 'game/screens/main_menu.dart';
 
 void main() async {

@@ -1,59 +1,42 @@
 import 'package:blickgame/utils/storage.dart';
 
 class ScoreManager {
-  int currentScore = 0;
+  int score = 0;
   int highScore = 0;
-  int currentCombo = 0;
+  int combo = 0;
   int maxCombo = 0;
-  
+
   final GameStorage storage;
-  bool _isInitialized = false;
-  
-  ScoreManager(this.storage) {
-    // ❌ لا تستدعي loadHighScore() هنا
-    // لأن storage قد لا يكون مهيئاً بعد
-  }
-  
-  // ✅ دالة منفصلة للتهيئة
+  bool _ready = false;
+
+  ScoreManager(this.storage);
+
   Future<void> init() async {
-    if (!_isInitialized) {
-      await storage.init(); // تأكد من تهيئة storage أولاً
-      await loadHighScore();
-      _isInitialized = true;
-    }
-  }
-  
-  void addScore(int points) {
-    currentScore += points;
-    if (points > 0) {
-      currentCombo++;
-      maxCombo = currentCombo > maxCombo ? currentCombo : maxCombo;
-    } else {
-      resetCombo();
-    }
-    
-    // Update high score if needed
-    if (currentScore > highScore) {
-      highScore = currentScore;
-      saveHighScore();
-    }
-  }
-  
-  void resetCombo() {
-    currentCombo = 0;
-  }
-  
-  Future<void> loadHighScore() async {
+    if (_ready) return;
+    await storage.init();
     highScore = await storage.getHighScore();
+    _ready = true;
   }
-  
-  Future<void> saveHighScore() async {
-    await storage.saveHighScore(highScore);
+
+  void add(int points) {
+    score += points;
+
+    if (points > 0) {
+      combo++;
+      if (combo > maxCombo) maxCombo = combo;
+    } else {
+      combo = 0;
+    }
+
+    if (score > highScore) {
+      highScore = score;
+      storage.saveHighScore(highScore);
+    }
   }
-  
+
   void reset() {
-    currentScore = 0;
-    currentCombo = 0;
+    score = 0;
+    combo = 0;
     maxCombo = 0;
   }
 }

@@ -1,43 +1,26 @@
 import 'package:flutter/material.dart';
 
-import '../../utils/constants.dart';
-
 class LevelManager {
-  int currentLevel;
-  int scoreThreshold;
-  
-  LevelManager({
-    this.currentLevel = GameConstants.initialLevel,
-    this.scoreThreshold = GameConstants.levelUpThreshold,
-  });
-  
-  void updateLevel(int score) {
-    final newLevel = (score ~/ scoreThreshold) + 1;
-    if (newLevel > currentLevel) {
-      currentLevel = newLevel;
-      // Increase threshold for next level
-      scoreThreshold = currentLevel * GameConstants.levelUpThreshold;
-    }
+  int level = 1;
+
+  void update(int score) {
+    level = (score ~/ 500) + 1;
   }
-  
-  double getLockedCellProbability() {
-    // Gradually increase locked cells up to 15% at level 20
-    return (currentLevel * 0.0075).clamp(0.0, 0.15);
+
+  double lockedChance() {
+    return (level * 0.01).clamp(0.0, 0.15);
   }
-  
-  double getComplexBlockProbability() {
-    // Increase complex blocks up to 40% at level 20
-    return (currentLevel * 0.02).clamp(0.1, 0.4);
+
+  double complexBlockChance() {
+    return (0.15 + level * 0.02).clamp(0.2, 0.45);
   }
-  
-  Color getGridColor() {
-    // Change grid color based on level
-    final hue = (currentLevel * 10) % 360;
-    return HSVColor.fromAHSV(1.0, hue.toDouble(), 0.3, 0.2).toColor();
+
+  Color gridColor() {
+    final hue = (level * 12) % 360;
+    return HSVColor.fromAHSV(1, hue.toDouble(), 0.4, 0.25).toColor();
   }
-  
+
   void reset() {
-    currentLevel = GameConstants.initialLevel;
-    scoreThreshold = GameConstants.levelUpThreshold;
+    level = 1;
   }
 }

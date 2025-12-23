@@ -4,97 +4,110 @@ import 'game_manager.dart';
 
 class HintManager {
   final GameManager gameManager;
-  
+  final Random _random = Random();
+
   HintManager(this.gameManager);
-  
+
   List<PlacementHint> getBestPlacements(BlockShape block) {
     final List<PlacementHint> hints = [];
-    int bestScore = -1;
-    
+
     for (int y = 0; y <= gameManager.gridSize - block.height; y++) {
       for (int x = 0; x <= gameManager.gridSize - block.width; x++) {
         if (gameManager.canPlaceBlock(block, y, x)) {
-          // Simulate placement
-          final simulatedScore = _simulatePlacement(block, y, x);
-          hints.add(PlacementHint(x, y, simulatedScore));
-          
-          if (simulatedScore > bestScore) {
-            bestScore = simulatedScore;
-          }
+          final score = _evaluatePlacement(block, y, x);
+          hints.add(PlacementHint(x, y, score));
         }
       }
     }
-    
-    // Sort by score descending
+
+    if (hints.isEmpty) return [];
+
     hints.sort((a, b) => b.score.compareTo(a.score));
-    
-    return hints;
+
+    final top = hints.take(min(5, hints.length)).toList();
+    top.shuffle(_random);
+
+    return top.take(3).toList();
   }
-  
-  int _simulatePlacement(BlockShape block, int row, int col) {
-    // Create a temporary copy of the grid
+
+  // ================= SCORING =================
+  int _evaluatePlacement(BlockShape block, int row, int col) {
     final tempGrid = _copyGrid(gameManager.grid);
-    
-    // Place the block
-    for (final cellOffset in block.occupiedCells) {
-      final cellX = col + cellOffset.x.toInt();
-      final cellY = row + cellOffset.y.toInt();
-      tempGrid[cellY][cellX].occupied = true;
+
+    for (final p in block.occupiedCells) {
+      tempGrid[row + p.y][col + p.x].occupied = true;
     }
-    
-    // Calculate potential lines cleared
-    return _calculatePotentialLines(tempGrid);
+
+    int score = 0;
+    score += _countCompletedLines(tempGrid) * 100;
+    score += block.occupiedCells.length * 2;
+    score -= _countIsolatedHoles(tempGrid) * 5;
+
+    if (row == 0 || col == 0) score -= 4;
+    score += _random.nextInt(6);
+
+    return score;
   }
-  
+
+  int _countCompletedLines(List<List<Cell>> grid) {
+    int lines = 0;
+    final size = grid.length;
+
+    for (int y = 0; y < size; y++) {
+      if (grid[y].every((c) => c.occupied && !c.locked)) lines++;
+    }
+
+    for (int x = 0; x < size; x++) {
+      bool full = true;
+      for (int y = 0; y < size; y++) {
+        if (!grid[y][x].occupied || grid[y][x].locked) {
+          full = false;
+          break;
+        }
+      }
+      if (full) lines++;
+    }
+
+    return lines;
+  }
+
+  int _countIsolatedHoles(List<List<Cell>> grid) {
+    int holes = 0;
+    final size = grid.length;
+
+    for (int y = 1; y < size - 1; y++) {
+      for (int x = 1; x < size - 1; x++) {
+        if (!grid[y][x].occupied &&
+            grid[y - 1][x].occupied &&
+            grid[y + 1][x].occupied &&
+            grid[y][x - 1].occupied &&
+            grid[y][x + 1].occupied) {
+          holes++;
+        }
+      }
+    }
+    return holes;
+  }
+
   List<List<Cell>> _copyGrid(List<List<Cell>> original) {
-    return original.map((row) {
-      return row.map((cell) {
-        return Cell(
-          occupied: cell.occupied,
-          locked: cell.locked,
-          powerUp: cell.powerUp,
-          blockType: cell.blockType,
-        );
-      }).toList();
-    }).toList();
-  }
-  
-  int _calculatePotentialLines(List<List<Cell>> grid) {
-    int potentialLines = 0;
-    final gridSize = grid.length;
-    
-    // Check rows
-    for (int y = 0; y < gridSize; y++) {
-      bool rowComplete = true;
-      for (int x = 0; x < gridSize; x++) {
-        if (!grid[y][x].occupied && !grid[y][x].locked) {
-          rowComplete = false;
-          break;
-        }
-      }
-      if (rowComplete) potentialLines++;
-    }
-    
-    // Check columns
-    for (int x = 0; x < gridSize; x++) {
-      bool colComplete = true;
-      for (int y = 0; y < gridSize; y++) {
-        if (!grid[y][x].occupied && !grid[y][x].locked) {
-          colComplete = false;
-          break;
-        }
-      }
-      if (colComplete) potentialLines++;
-    }
-    
-    return potentialLines;
+    return List.generate(
+      original.length,
+      (y) => List.generate(
+        original[y].length,
+        (x) => Cell(
+          occupied: original[y][x].occupied,
+          locked: original[y][x].locked,
+        ),
+      ),
+    );
   }
 }
 
+// ================= MODEL =================
 class PlacementHint {
   final int x;
   final int y;
   final int score;
-  
+
   PlacementHint(this.x, this.y, this.score);
 }
