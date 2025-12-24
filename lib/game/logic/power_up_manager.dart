@@ -1,6 +1,5 @@
-// game/logic/power_up_manager.dart
 import 'package:blickgame/game/logic/game_manager.dart';
-import 'package:blickgame/game/logic/enums.dart'; // ✅ أضف هذا الاستيراد
+import 'package:blickgame/game/logic/enums.dart';
 
 class PowerUpManager {
   void applyPowerUp(PowerUpType type, List<List<Cell>> grid, int row, int col) {
@@ -12,10 +11,8 @@ class PowerUpManager {
         _applyLineClear(grid, row, col);
         break;
       case PowerUpType.swap:
-        // Handled elsewhere in the game flow
         break;
       case PowerUpType.hint:
-        // Handled by hint system
         break;
       case PowerUpType.none:
         break;
@@ -35,14 +32,12 @@ class PowerUpManager {
   }
   
   void _applyLineClear(List<List<Cell>> grid, int row, int col) {
-    // Clear entire row
     for (int x = 0; x < grid[0].length; x++) {
       if (!grid[row][x].locked) {
         grid[row][x].clear();
       }
     }
     
-    // Clear entire column
     for (int y = 0; y < grid.length; y++) {
       if (!grid[y][col].locked) {
         grid[y][col].clear();

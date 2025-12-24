@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flame/game.dart' hide Matrix4;
-import 'package:google_fonts/google_fonts.dart'; // أضف في pubspec.yaml: google_fonts: ^6.1.0
+import 'package:google_fonts/google_fonts.dart';
 import '../puzzle_game.dart';
 
 class MainMenuScreen extends StatelessWidget {
@@ -23,14 +23,12 @@ class MainMenuScreen extends StatelessWidget {
         ),
         child: Stack(
           children: [
-            // ✅ خلفية جزيئات متحركة
             Positioned.fill(
               child: CustomPaint(
                 painter: ParticlePainter(),
               ),
             ),
             
-            // ✅ أشعة ضوئية
             Positioned(
               top: -100,
               right: -100,
@@ -74,7 +72,6 @@ class MainMenuScreen extends StatelessWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // ✅ اللوجو مع تأثير ثلاثي الأبعاد
                     Transform(
                       transform: Matrix4.identity()
                         ..setEntry(3, 2, 0.001)
@@ -97,7 +94,6 @@ class MainMenuScreen extends StatelessWidget {
                           
                           Stack(
                             children: [
-                              // تأثير الظل
                               Text(
                                 'PUZZLE',
                                 style: GoogleFonts.orbitron(
@@ -107,7 +103,6 @@ class MainMenuScreen extends StatelessWidget {
                                   letterSpacing: 6,
                                 ),
                               ),
-                              // النص الرئيسي مع تدرج لوني
                               ShaderMask(
                                 shaderCallback: (bounds) {
                                   return LinearGradient(
@@ -135,7 +130,6 @@ class MainMenuScreen extends StatelessWidget {
                     
                     SizedBox(height: 10),
                     
-                    // ✅ وصف اللعبة
                     Text(
                       'Fit the blocks. Clear the grid. Master the puzzle.',
                       style: GoogleFonts.roboto(
@@ -147,7 +141,6 @@ class MainMenuScreen extends StatelessWidget {
                     
                     SizedBox(height: 60),
                     
-                    // ✅ الأزرار مع تأثيرات
                     _buildMenuButton(
                       context,
                       title: '🚀 START GAME',
@@ -211,7 +204,6 @@ class MainMenuScreen extends StatelessWidget {
                     
                     SizedBox(height: 40),
                     
-                    // ✅ إحصائيات سريعة
                     Container(
                       padding: EdgeInsets.all(16),
                       decoration: BoxDecoration(
@@ -246,7 +238,6 @@ class MainMenuScreen extends StatelessWidget {
                     
                     SizedBox(height: 20),
                     
-                    // ✅ حقوق النشر
                     Text(
                       '© 2026 Block Puzzle Master',
                       style: GoogleFonts.roboto(
@@ -392,8 +383,6 @@ class MainMenuScreen extends StatelessWidget {
   }
   
   void _playButtonSound() {
-    // يمكنك إضافة صوت هنا باستخدام audio_player
-    // AudioPlayer().play(AssetSource('sounds/click.mp3'));
   }
   
   void _showLeaderboard(BuildContext context) {
@@ -489,7 +478,6 @@ class MainMenuScreen extends StatelessWidget {
   }
   
   void _showSettings(BuildContext context) {
-    // إضافة إعدادات اللعبة
   }
   
   void _showTutorial(BuildContext context) {
@@ -618,7 +606,6 @@ class MainMenuScreen extends StatelessWidget {
   }
 }
 
-// ✅ رسام الجزيئات المتحركة للخلفية
 class ParticlePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {

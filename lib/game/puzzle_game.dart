@@ -21,15 +21,13 @@ class PuzzleGame extends FlameGame with DragCallbacks, TapCallbacks {
   final double cellSize = GameConstants.cellSize;
   Vector2 gridPosition = Vector2.zero();
 
-  // ===== HUD =====
   late TextComponent scoreText;
   late TextComponent highScoreText;
   late TextComponent crownIcon;
 
-  int _uiHighScore = 0; // UI فقط
+  int _uiHighScore = 0;
   bool _highScoreAnimated = false;
 
-  // ===== Game State =====
   bool _gameOver = false;
   bool _gameWon = false;
   GameOverComponent? _gameOverComponent;

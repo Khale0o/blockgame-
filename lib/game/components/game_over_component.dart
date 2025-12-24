@@ -28,14 +28,13 @@ class GameOverComponent extends PositionComponent with TapCallbacks {
   Future<void> onLoad() async {
     super.onLoad();
 
-    // Background
     background = RectangleComponent(
       size: size,
       paint: Paint()..color = Colors.black.withOpacity(0.85),
     );
     add(background);
 
-    // Title
+
     titleText = TextComponent(
       text: title,
       textRenderer: TextPaint(
@@ -57,7 +56,6 @@ class GameOverComponent extends PositionComponent with TapCallbacks {
     );
     add(titleText);
 
-    // Message
     messageText = TextComponent(
       text: message,
       textRenderer: TextPaint(
@@ -72,7 +70,6 @@ class GameOverComponent extends PositionComponent with TapCallbacks {
     );
     add(messageText);
 
-    // Restart Button
     restartButton = RectangleComponent(
       size: Vector2(200, 60),
       position: Vector2(size.x / 2 - 100, size.y * 0.65),

@@ -1,4 +1,3 @@
-// game/logic/hint_manager.dart
 import 'dart:math';
 import 'package:blickgame/game/logic/block_model.dart';
 
@@ -32,13 +31,12 @@ class HintManager {
     return top.take(3).toList();
   }
 
-  // ================= SCORING =================
   int _evaluatePlacement(BlockShape block, int row, int col) {
     final tempGrid = _copyGrid(gameManager.grid);
 
     for (final p in block.occupiedCells) {
-      final x = (col + p.x).toInt(); // ✅ تحويل إلى int
-      final y = (row + p.y).toInt(); // ✅ تحويل إلى int
+      final x = (col + p.x).toInt();
+      final y = (row + p.y).toInt();
       if (y >= 0 && y < tempGrid.length && x >= 0 && x < tempGrid[0].length) {
         tempGrid[y][x].occupied = true;
       }
@@ -110,7 +108,6 @@ class HintManager {
   }
 }
 
-// ================= MODEL =================
 class PlacementHint {
   final int x;
   final int y;

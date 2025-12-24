@@ -9,7 +9,7 @@ class DraggableBlock extends PositionComponent with DragCallbacks {
   final BlockShape block;
   final int index;
   final bool isUsed;
-  final Vector2 homePosition; // ✅ أضف هذا
+  final Vector2 homePosition;
 
   final void Function(DraggableBlock block, Vector2 worldPos)? onDrop;
 
@@ -25,7 +25,7 @@ class DraggableBlock extends PositionComponent with DragCallbacks {
     required Vector2 position,
     required Vector2 size,
     required this.isUsed,
-    required this.homePosition, // ✅ أضف هذا
+    required this.homePosition,
     this.onDrop,
   }) : super(position: position, size: size) {
     _originalPosition = position.clone();
@@ -36,7 +36,7 @@ class DraggableBlock extends PositionComponent with DragCallbacks {
   @override
   void onMount() {
     super.onMount();
-    _originalPosition = homePosition.clone(); // ✅ استخدم homePosition
+    _originalPosition = homePosition.clone();
   }
 
   @override
@@ -47,8 +47,6 @@ class DraggableBlock extends PositionComponent with DragCallbacks {
   }
 
   @override
-// components/draggable_block.dart (مختصر)
-@override
 void render(Canvas canvas) {
   if (!isUsed) {
     _render3DBlock(canvas);
@@ -67,13 +65,10 @@ void _render3DBlock(Canvas canvas) {
       cellH - 2,
     );
     
-    // 🔥 تأثير 3D
     if (block.is3D) {
-      // الجوانب
       final sidePaint = Paint()..color = block.sideColor;
       final bottomPaint = Paint()..color = block.sideColor.withOpacity(0.7);
       
-      // الجانب الأيمن
       canvas.drawRect(
         Rect.fromLTWH(
           rect.right - block.elevation,
@@ -84,7 +79,6 @@ void _render3DBlock(Canvas canvas) {
         sidePaint,
       );
       
-      // الجانب السفلي
       canvas.drawRect(
         Rect.fromLTWH(
           rect.left + block.elevation,
@@ -95,7 +89,6 @@ void _render3DBlock(Canvas canvas) {
         bottomPaint,
       );
       
-      // القمة
       final topRect = Rect.fromLTWH(
         rect.left,
         rect.top,
@@ -122,7 +115,6 @@ void _render3DBlock(Canvas canvas) {
         borderPaint,
       );
     } else {
-      // نسخة مسطحة (في الجريد)
       final fill = Paint()..color = block.color;
       final border = Paint()
         ..color = Colors.white.withOpacity(0.3)
@@ -158,12 +150,10 @@ void onDragStart(DragStartEvent event) {
     _dragging = false;
     priority = 0;
     if (isUsed) return;
-    // ✅ أرسل موقع البلوك (الزاوية العلوية اليسرى)
     onDrop?.call(this, position.clone());
   }
 
   void returnToOriginal() {
-    // ✅ العودة لـ homePosition مباشرة
     children.whereType<MoveEffect>().forEach((effect) {
       effect.removeFromParent();
     });
